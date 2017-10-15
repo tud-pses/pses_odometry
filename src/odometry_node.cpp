@@ -54,6 +54,7 @@ int main(int argc, char** argv)
   ros::Rate loop_rate(150);
   while (ros::ok())
   {
+    // feed the kinematic model with sensor data, to predict location
     odomHelper.updateSensorData(imu, hallDt.data, motor.data);
     odomHelper.getQuaternion(odomQuaternion);
 
