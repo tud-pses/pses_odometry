@@ -4,6 +4,7 @@
 #include <ros/ros.h>
 #include <geometry_msgs/Point.h>
 #include <pses_odometry/ForwardKinematics.h>
+#include <sensor_msgs/Imu.h>
 
 #define WHEEL_RADIUS 0.032
 #define RAD_PER_TICK 0.7853981634 // 2*PI/8
@@ -32,38 +33,38 @@ public:
 		oldTimeStamp = ros::Time::now();
 		odometric.setK(0.25); // set distance between front axis and back axis (in meters)
 	}
-  /*
-	inline void updateSensorData(pses_basis::SensorData& sensorData) {
-		calcDt(sensorData.header.stamp, oldTimeStamp);
+
+  inline void updateSensorData(const sensor_msgs::Imu& imuData, const double hallDt) {
+    calcDt(imuData.header.stamp, oldTimeStamp);
 		if(imuCalibrated) {
-			sensorData.angular_velocity_x -= wxOffset;
-			sensorData.angular_velocity_y -= wyOffset;
-			sensorData.angular_velocity_z -= wzOffset;
-			sensorData.accelerometer_x -= axOffset;
-			sensorData.accelerometer_y -= ayOffset;
-			sensorData.accelerometer_z -= azOffset;
-			yaw = integrateEulerAngles(yaw, sensorData.angular_velocity_z, dt);
-			pitch = integrateEulerAngles(pitch, sensorData.angular_velocity_y, dt);
-			roll = integrateEulerAngles(roll, sensorData.angular_velocity_x, dt);
+      this->imuData.angular_velocity.x = imuData.angular_velocity.x - wxOffset;
+      this->imuData.angular_velocity.y = imuData.angular_velocity.y - wyOffset;
+      this->imuData.angular_velocity.z = imuData.angular_velocity.z - wzOffset;
+      this->imuData.linear_acceleration.x = imuData.linear_acceleration.x - axOffset;
+      this->imuData.linear_acceleration.y = imuData.linear_acceleration.y - ayOffset;
+      this->imuData.linear_acceleration.z = imuData.linear_acceleration.z - azOffset;
+      yaw = integrateEulerAngles(yaw, this->imuData.angular_velocity.z, dt);
+      pitch = integrateEulerAngles(pitch, this->imuData.angular_velocity.y, dt);
+      roll = integrateEulerAngles(roll, this->imuData.angular_velocity.x, dt);
 		}
-		else calibrateIMU();
-		this->sensorData = sensorData;
-		oldTimeStamp = sensorData.header.stamp;
+    else calibrateIMU();
+    this->hallDt = hallDt;
+    oldTimeStamp = imuData.header.stamp;
 		calcSpeed();
 		calcDeltaDistance();
 		calcDrivenDistance();
 		calcPosition();
 	}
-  */
-  /*
-	inline void updateCommand(const pses_basis::Command& cmd) {
-		command = cmd;
+
+
+  inline void updateMotorLevel(const int motorLevel) {
+    this->motorLevel = motorLevel;
         prevDirection = drivingDirection;
-        if(command.motor_level < 0) drivingDirection = -1;
-		else if(command.motor_level > 0) drivingDirection = 1;
+        if(motorLevel < 0) drivingDirection = -1;
+    else if(motorLevel > 0) drivingDirection = 1;
 		else drivingDirection = 0;
 	}
-  */
+
 	inline double getYaw() {
 		return yaw;
 	}
@@ -111,22 +112,23 @@ private:
 	bool imuCalibrated;
 	ros::Time oldTimeStamp;
 	geometry_msgs::Point position;
-	ForwardKinematics odometric; // object needed for odometric calculations
-  //pses_basis::SensorData sensorData;
-  //pses_basis::Command command;
+  ForwardKinematics odometric;
+  int motorLevel;
+  double hallDt;
+  sensor_msgs::Imu imuData;
 	inline void calcDt(const ros::Time& currentTimeStamp, const ros::Time& oldTimeStamp) {
 		dt = (currentTimeStamp - oldTimeStamp).toSec();
 	}
-  /*
+
 	inline void calibrateIMU() {
-		if(dataCount < 500 && sensorData.angular_velocity_z != 0.0) {
+    if(dataCount < 500) {
 			dataCount++;
-			wxOffset += sensorData.angular_velocity_x;
-			wyOffset += sensorData.angular_velocity_y;
-			wzOffset += sensorData.angular_velocity_z;
-			axOffset += sensorData.accelerometer_x;
-			ayOffset += sensorData.accelerometer_y;
-			azOffset += (sensorData.accelerometer_z - STANDARD_GRAVITY);
+      wxOffset += imuData.angular_velocity.x;
+      wyOffset += imuData.angular_velocity.y;
+      wzOffset += imuData.angular_velocity.z;
+      axOffset += imuData.linear_acceleration.x;
+      ayOffset += imuData.linear_acceleration.x;
+      azOffset += (imuData.linear_acceleration.z - STANDARD_GRAVITY);
 		}
 		else if(dataCount == 500 && !imuCalibrated) {
 			wxOffset /= dataCount;
@@ -138,7 +140,7 @@ private:
 			imuCalibrated = true;
 		}
 	}
-  */
+
 	inline void calcRPY(){
 	}
 	inline double integrateEulerAngles(double angle, double dAngle, double dT){
@@ -151,21 +153,21 @@ private:
 				return result;
 			}
 	}
-  /*
+
 	inline void calcSpeed() {
-        if(!std::isnan(sensorData.hall_sensor_dt)){
-            speed =  drivingDirection * DRIVEN_DISTANCE_PER_TICK / sensorData.hall_sensor_dt;
+        if(!std::isnan(hallDt)){
+            speed =  drivingDirection * DRIVEN_DISTANCE_PER_TICK / hallDt;
         }else{
             if(prevDirection!=drivingDirection) speed = 0;
             else if(drivingDirection == 0) speed =  0;
         }
 	}
-  */
-  /*
+
+
 	inline void calcDeltaDistance() {
-		deltaDistance = std::isnan(sensorData.hall_sensor_dt)?0.0 : drivingDirection*DRIVEN_DISTANCE_PER_TICK;
+    deltaDistance = std::isnan(hallDt)?0.0 : drivingDirection*DRIVEN_DISTANCE_PER_TICK;
 	}
-  */
+
 	inline void calcDrivenDistance() {
 		drivenDistance = drivenDistance + deltaDistance;
 	}
