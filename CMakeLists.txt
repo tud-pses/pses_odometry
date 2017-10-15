@@ -124,6 +124,7 @@ include_directories(
 ## Declare a C++ library
 add_library(odometry_project
   src/ForwardKinematics.cpp
+  src/OdometryHelper.cpp
 )
 
 ## Add cmake target dependencies of the library
