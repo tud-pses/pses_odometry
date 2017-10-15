@@ -3,6 +3,10 @@
 #include <geometry_msgs/TransformStamped.h>
 #include <nav_msgs/Odometry.h>
 #include <pses_odometry/OdometryHelper.h>
+#include <sensor_msgs/Imu.h>
+#include <std_msgs/Int16.h>
+#include <std_msgs/Float64.h>
+#include <std_msgs/UInt8.h>
 
 /*
 void buildOdometryTransformation(geometry_msgs::TransformStamped& odomTransform,
@@ -100,6 +104,23 @@ void dataCallback(const pses_basis::SensorData::ConstPtr& sensorData,
 }
 */
 
+void imuCallback(sensor_msgs::Imu::ConstPtr msg, sensor_msgs::Imu* out){
+  *out = *msg;
+}
+
+void motorCallback(std_msgs::Int16::ConstPtr msg, std_msgs::Int16* out){
+  *out = *msg;
+}
+
+void hallCntCallback(std_msgs::UInt8::ConstPtr msg, std_msgs::UInt8* out){
+  *out = *msg;
+}
+
+void hallDtCallback(std_msgs::Float64::ConstPtr msg, std_msgs::Float64* out){
+  *out = *msg;
+}
+
+
 int main(int argc, char** argv)
 {
 
@@ -108,21 +129,37 @@ int main(int argc, char** argv)
   ros::NodeHandle nh;
   // object needed to send odometric information to the navigational stack
   tf::TransformBroadcaster odomBroadcaster;
+  geometry_msgs::TransformStamped odomTransform;
+  nav_msgs::Odometry odom;
+  geometry_msgs::Quaternion odomQuaternion;
   // object neeeded to store the current commands
+  sensor_msgs::Imu imu;
+  std_msgs::Int16 motor;
+  std_msgs::UInt8 hallCnt;
+  std_msgs::Float64 hallDt;
   // objects needed for odometric calculations
   OdometryHelper odomHelper;
   // Publishes the results of the odometry calculations to other ros nodes
-  ros::Publisher odom_pub = nh.advertise<nav_msgs::Odometry>("odom", 50);
-  // Here we subscribe to the sensor_data and command topics
-  /*
-  ros::Subscriber sensor_data_sub = nh.subscribe<pses_basis::SensorData>(
-      "pses_basis/sensor_data", 1,
-      std::bind(dataCallback, std::placeholders::_1, &odomBroadcaster,
-                &odom_pub, &odomHelper, &carInfo_pub));
-  ros::Subscriber command_sub = nh.subscribe<pses_basis::Command>(
-      "pses_basis/command", 1,
-      std::bind(commandCallback, std::placeholders::_1, &odomHelper));
-  */
+  ros::Publisher odomPub = nh.advertise<nav_msgs::Odometry>("odom", 10);
+  ros::Subscriber imuSub = nh.subscribe<sensor_msgs::Imu>("/uc_bridge/imu", 10, boost::bind(imuCallback,_1,&imu));
+  ros::Subscriber motorSub = nh.subscribe<std_msgs::Int16>("/uc_bridge/set_motor_level_msg", 1, boost::bind(motorCallback,_1,&motor));
+  ros::Subscriber hallCntSub = nh.subscribe<std_msgs::UInt8>("/uc_bridge/hall_cnt", 10, boost::bind(hallCntCallback,_1,&hallCnt));
+  ros::Subscriber hallDtSub = nh.subscribe<std_msgs::Float64>("/uc_bridge/hall_dt", 10, boost::bind(hallDtCallback,_1,&hallDt));
+
+  // Loop starts here:
+  ros::Rate loop_rate(150);
+  while (ros::ok())
+  {
+    //odomHelper->updateSensorData(sensorDataCopy);
+
+
+    odomPub.publish(odom);
+    odomBroadcaster.sendTransform(odomTransform);
+
+    ros::spinOnce();
+    loop_rate.sleep();
+  }
+
   ros::spin();
 
   return 0;
