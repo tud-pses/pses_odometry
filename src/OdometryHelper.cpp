@@ -2,6 +2,9 @@
 
 OdometryHelper::OdometryHelper()
 {
+  ticks = 0;
+  prevTicks = 0;
+  currentTicks = 0;
   yaw = 0.0;
   pitch = 0.0;
   roll = 0.0;
@@ -24,9 +27,11 @@ OdometryHelper::OdometryHelper()
 }
 
 void OdometryHelper::updateSensorData(const sensor_msgs::Imu& imuData,
-                                      const double hallDt, const int motor)
+                                      const double hallDt, const unsigned char ticks, 
+                                      const int motor)
 {
   calcDt(imuData.header.stamp, oldTimeStamp);
+  calcTicks(ticks);
   if (imuCalibrated)
   {
     this->imuData.angular_velocity.x = imuData.angular_velocity.x - wxOffset;
@@ -41,8 +46,11 @@ void OdometryHelper::updateSensorData(const sensor_msgs::Imu& imuData,
     calcRPY();
   }
   else
+  {
     this->imuData = imuData;
     calibrateIMU();
+    //return;
+  }
   this->hallDt = hallDt;
   updateMotorLevel(motor);
   calcSpeed();
@@ -95,9 +103,21 @@ void OdometryHelper::calcDt(const ros::Time& currentTimeStamp,
   dt = (currentTimeStamp - oldTimeStamp).toSec();
 }
 
+void OdometryHelper::calcTicks(const unsigned char ticks) {
+  if (ticks < this->ticks) 
+  {
+    currentTicks = currentTicks + (256 - this->ticks) + ticks;
+  }
+  else
+  {
+    currentTicks = currentTicks + (ticks - this->ticks);
+  }
+  this->ticks = ticks;
+}
+
 void OdometryHelper::calibrateIMU()
 {
-  if (dataCount < 50 && imuData.angular_velocity.z != 0)
+  if (dataCount < 150 && imuData.angular_velocity.z != 0)
   {
     dataCount++;
     wxOffset += imuData.angular_velocity.x;
@@ -107,7 +127,7 @@ void OdometryHelper::calibrateIMU()
     ayOffset += imuData.linear_acceleration.x;
     azOffset += (imuData.linear_acceleration.z - STANDARD_GRAVITY);
   }
-  else if (dataCount == 50 && !imuCalibrated)
+  else if (dataCount == 150 && !imuCalibrated)
   {
     wxOffset /= dataCount;
     wyOffset /= dataCount;
@@ -159,8 +179,15 @@ void OdometryHelper::calcSpeed()
 
 void OdometryHelper::calcDeltaDistance()
 {
-  deltaDistance =
-      std::isnan(hallDt) ? 0.0 : drivingDirection * DRIVEN_DISTANCE_PER_TICK;
+  //deltaDistance =
+  //    std::isnan(hallDt) ? 0.0 : drivingDirection * DRIVEN_DISTANCE_PER_TICK;
+  if (std::isnan(hallDt))
+  {
+    deltaDistance = 0.0;
+    return;
+  }
+  deltaDistance = drivingDirection * static_cast<long>(currentTicks - prevTicks) * DRIVEN_DISTANCE_PER_TICK;
+  prevTicks = currentTicks;
 }
 
 void OdometryHelper::calcDrivenDistance()

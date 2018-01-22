@@ -17,7 +17,7 @@ class OdometryHelper
 public:
   OdometryHelper();
   void updateSensorData(const sensor_msgs::Imu& imuData, const double hallDt,
-                        const int motor);
+                        const unsigned char ticks, const int motor);
   void updateMotorLevel(const int motorLevel);
   const double& getYaw() const;
   const double& getRoll() const;
@@ -35,6 +35,9 @@ private:
   // sensor data
   double hallDt;
   sensor_msgs::Imu imuData;
+  unsigned char ticks;
+  unsigned int prevTicks;
+  unsigned int currentTicks;
   // command data
   int motorLevel;
   int prevDirection;
@@ -65,6 +68,7 @@ private:
   ForwardKinematics odometric;
 
   void calcDt(const ros::Time& currentTimeStamp, const ros::Time& oldTimeStamp);
+  void calcTicks(const unsigned char ticks);
   void calibrateIMU();
   void calcRPY();
   void integrateEulerAngles(const double& dAngle, double& angle);

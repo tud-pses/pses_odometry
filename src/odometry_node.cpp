@@ -55,7 +55,7 @@ int main(int argc, char** argv)
   while (ros::ok())
   {
     // feed the kinematic model with sensor data, to predict location
-    odomHelper.updateSensorData(imu, hallDt.data, motor.data);
+    odomHelper.updateSensorData(imu, hallDt.data, hallCnt.data, motor.data);
     odomHelper.getQuaternion(odomQuaternion);
 
     // build odometry transform
